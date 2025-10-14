@@ -8,6 +8,11 @@ from django.contrib.auth import logout
 from django.contrib import messages
 from datetime import datetime
 
+from .models import CarMake, CarModel
+from django.http import JsonResponse
+from .populate import initiate  # optional, if using populate.py
+
+
 from django.http import JsonResponse
 from django.contrib.auth import login, authenticate
 import logging
@@ -51,6 +56,17 @@ def logout_request(request):
 
 # Create a `registration` view to handle sign up request
 # @csrf_exempt
+
+def get_cars(request):
+    count = CarMake.objects.count()
+    if count == 0:
+        initiate()
+    car_models = CarModel.objects.select_related('car_make')
+    cars = [{"CarModel": cm.name, "CarMake": cm.car_make.name} for cm in car_models]
+    return JsonResponse({"CarModels": cars})
+
+
+
 @csrf_exempt
 def registration(request):
     context = {}
