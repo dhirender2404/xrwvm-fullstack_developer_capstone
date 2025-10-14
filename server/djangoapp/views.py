@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import logout
 from django.contrib import messages
 from datetime import datetime
-
+from .restapis import get_request, analyze_review_sentiments, post_review
 
 from .models import CarMake, CarModel
 from django.http import JsonResponse
@@ -106,27 +106,45 @@ def registration(request):
 # a list of dealerships
 #Update the `get_dealerships` render list of dealerships all by default, particular state if state is passed
 def get_dealerships(request, state="All"):
-    if(state == "All"):
-        endpoint = "/fetchDealers"
-    else:
-        endpoint = "/fetchDealers/"+state
-    dealerships = get_request(endpoint)
-    return JsonResponse({"status":200,"dealers":dealerships})
+    # Serve directly from your local database or fixture
+    from .populate import initiate
+    if CarMake.objects.count() == 0:
+        initiate()
+
+    # Here you can return mock dealers if needed
+    dealers = [
+        {"id": 1, "full_name": "Dealer One", "city": "CityA", "state": "StateX", "address": "Addr1", "zip": "12345"},
+        {"id": 2, "full_name": "Dealer Two", "city": "CityB", "state": "StateY", "address": "Addr2", "zip": "67890"},
+        # Add more if needed
+    ]
+
+    MOCK_REVIEWS = [
+    {"review": "Great service, very professional!", "user": "Alice", "rating": 5},
+    {"review": "Average experience, car delivery was late.", "user": "Bob", "rating": 3},
+    {"review": "Excellent deals and friendly staff.", "user": "Charlie", "rating": 4},
+    {"review": "Not satisfied, poor communication.", "user": "Dave", "rating": 2}
+]
+
+
+    if state != "All":
+        dealers = [d for d in dealers if d['state'] == state]
+
+    return JsonResponse({"status": 200, "dealers": dealers})
+
 # ...
 
 # Create a `get_dealer_reviews` view to render the reviews of a dealer
 def get_dealer_reviews(request, dealer_id):
-    # if dealer id has been provided
-    if(dealer_id):
-        endpoint = "/fetchReviews/dealer/"+str(dealer_id)
-        reviews = get_request(endpoint)
-        for review_detail in reviews:
-            response = analyze_review_sentiments(review_detail['review'])
-            print(response)
-            review_detail['sentiment'] = response['sentiment']
-        return JsonResponse({"status":200,"reviews":reviews})
-    else:
-        return JsonResponse({"status":400,"message":"Bad Request"})
+    dealer = next((d for d in MOCK_DEALERS if d["id"] == int(dealer_id)), None)
+    if not dealer:
+        return JsonResponse({"status": 404, "message": "Dealer not found"})
+
+    # Return 1-3 random reviews for the dealer
+    reviews = random.sample(MOCK_REVIEWS, k=random.randint(1, 3))
+    for r in reviews:
+        # Add sentiment for demonstration
+        r["sentiment"] = "positive" if r["rating"] >= 4 else "negative"
+    return JsonResponse({"status": 200, "reviews": reviews})
 # ...
 
 # Create a `get_dealer_details` view to render the dealer details
